@@ -1,0 +1,386 @@
+{% extends 'boards/base.html' %}
+
+{% block title %}{{ board.title }} - Trello Clone{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-1">{{ board.title }}</h1>
+                <p class="text-muted mb-0">{{ board.description }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'create_list' board.id %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Añadir Lista
+                </a>
+                <button class="btn btn-outline-secondary" onclick="toggleSearch()">
+                    <i class="fas fa-search me-2"></i>Buscar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="search-container" class="mb-4" style="display: none;">
+    <div class="card">
+        <div class="card-body">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" class="form-control" id="search-input" placeholder="Buscar tarjetas...">
+                <button class="btn btn-outline-secondary" onclick="clearSearch()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="board-container">
+    {% for list in lists %}
+    <div class="list-container">
+        <div class="list-header">
+            <div class="d-flex align-items-center">
+                <h5 class="list-title">{{ list.title }}</h5>
+                <span class="badge bg-secondary ms-2">{{ list.cards.count }}</span>
+            </div>
+            <button class="add-card-btn" onclick="location.href='{% url 'create_card' list.id %}'">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+        <div class="list-cards" data-list-id="{{ list.id }}">
+            {% for card in list.cards.all %}
+            <div class="card" data-card-id="{{ card.id }}" onclick="openCardModal({{ card.id }})">
+                <div class="card-body">
+                    {% if card.labels.all %}
+                    <div class="card-labels mb-2">
+                        {% for label in card.labels.all %}
+                        <span class="card-label" style="background-color: var(--{{ label.color }}-color);" title="{{ label.name }}"></span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="card-title mb-0">{{ card.title }}</h6>
+                        {% if card.due_date %}
+                            {% if card.due_date < now %}
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-clock me-1"></i>Vencido
+                                </span>
+                            {% else %}
+                                <span class="badge badge-warning">
+                                    <i class="fas fa-clock me-1"></i>{{ card.due_date|date:"d/m/Y" }}
+                                </span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% if card.description %}
+                    <p class="card-text">{{ card.description|truncatechars:50 }}</p>
+                    {% endif %}
+                    
+                    <div class="card-footer mt-2 d-flex justify-content-between align-items-center">
+                        {% if card.assigned_to %}
+                        <div>
+                            <small class="text-muted">
+                                <i class="fas fa-user me-1"></i>{{ card.assigned_to.username }}
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="card-icons">
+                            {% if card.description %}
+                            <small class="text-muted me-2">
+                                <i class="fas fa-align-left"></i>
+                            </small>
+                            {% endif %}
+                            {% if card.labels.count > 0 %}
+                            <small class="text-muted me-2">
+                                <i class="fas fa-tag"></i>
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal de Tarjeta -->
+<div class="modal fade" id="cardModal" tabindex="-1" aria-labelledby="cardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cardModalTitle">Título de la Tarjeta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <p class="text-muted small">En lista <span id="cardModalList">Nombre de Lista</span></p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Descripción</h6>
+                            <p id="cardModalDescription">Descripción de la tarjeta...</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title">Agregar a la tarjeta</h6>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm text-start">
+                                        <i class="fas fa-user me-2"></i>Miembros
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm text-start">
+                                        <i class="fas fa-tag me-2"></i>Etiquetas
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm text-start">
+                                        <i class="fas fa-check-square me-2"></i>Lista de tareas
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm text-start">
+                                        <i class="fas fa-clock me-2"></i>Fecha de vencimiento
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">Acciones</h6>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm text-start">
+                                        <i class="fas fa-arrows-alt me-2"></i>Mover
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm text-start">
+                                        <i class="fas fa-copy me-2"></i>Copiar
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm text-start" onclick="confirmDeleteCard(event)">
+                                        <i class="fas fa-trash-alt me-2"></i>Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar esta tarjeta? Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.card-placeholder {
+    border: 2px dashed #ccc;
+    background-color: rgba(0,0,0,0.05);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    height: 50px;
+}
+
+.shadow-lg {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+    transform: translateY(-4px);
+    transition: all 0.3s ease;
+}
+
+.card-labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.card-label {
+    height: 8px;
+    width: 40px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.card-footer {
+    border-top: none;
+    background-color: transparent;
+    padding: 0;
+    font-size: 0.8rem;
+}
+
+.card-icons i {
+    opacity: 0.6;
+}
+
+:root {
+    --green-color: var(--success-color);
+    --yellow-color: var(--warning-color);
+    --orange-color: #ff9f1a;
+    --red-color: var(--danger-color);
+    --purple-color: #a278f4;
+    --blue-color: var(--primary-color);
+}
+
+.modal-content {
+    background-color: var(--card-color);
+    color: var(--text-color);
+}
+
+.modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+.modal-footer {
+    border-top-color: var(--border-color);
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    $(".list-cards").sortable({
+        connectWith: ".list-cards",
+        handle: ".card",
+        opacity: 0.7,
+        placeholder: "card-placeholder",
+        update: function(event, ui) {
+            var cardId = ui.item.data('card-id');
+            var newListId = ui.item.parent().data('list-id');
+            var newOrder = ui.item.index();
+            
+            $.ajax({
+                url: "{% url 'update_card_order' %}",
+                method: 'POST',
+                data: {
+                    'card_id': cardId,
+                    'new_list_id': newListId,
+                    'new_order': newOrder,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                }
+            });
+        }
+    }).disableSelection();
+
+    // Efecto de hover en las tarjetas
+    $(".card").hover(
+        function() {
+            $(this).addClass("shadow-lg");
+        },
+        function() {
+            $(this).removeClass("shadow-lg");
+        }
+    );
+});
+
+function toggleSearch() {
+    const searchContainer = document.getElementById('search-container');
+    const searchInput = document.getElementById('search-input');
+    
+    if (searchContainer.style.display === 'none') {
+        searchContainer.style.display = 'block';
+        searchInput.focus();
+    } else {
+        searchContainer.style.display = 'none';
+        searchInput.value = '';
+        filterCards('');
+    }
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('search-input');
+    searchInput.value = '';
+    filterCards('');
+}
+
+function filterCards(searchTerm) {
+    const cards = document.querySelectorAll('.card');
+    searchTerm = searchTerm.toLowerCase();
+    
+    cards.forEach(card => {
+        const title = card.querySelector('.card-title').textContent.toLowerCase();
+        const description = card.querySelector('.card-text')?.textContent.toLowerCase() || '';
+        
+        if (title.includes(searchTerm) || description.includes(searchTerm)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function openCardModal(cardId) {
+    // Simular la carga de datos de la tarjeta
+    // En un entorno real, cargarías estos datos desde el servidor
+    const cards = {
+        {% for list in lists %}
+            {% for card in list.cards.all %}
+                {{ card.id }}: {
+                    title: "{{ card.title }}",
+                    description: "{{ card.description|default:'Sin descripción' }}",
+                    list: "{{ list.title }}",
+                    dueDate: "{{ card.due_date|date:'d/m/Y'|default:'' }}",
+                    assignedTo: "{{ card.assigned_to.username|default:'' }}"
+                },
+            {% endfor %}
+        {% endfor %}
+    };
+    
+    const card = cards[cardId];
+    
+    if (card) {
+        $('#cardModalTitle').text(card.title);
+        $('#cardModalDescription').text(card.description);
+        $('#cardModalList').text(card.list);
+        
+        // Guardar el ID de la tarjeta en el modal para usarlo en la eliminación
+        $('#cardModal').attr('data-card-id', cardId);
+        
+        const cardModal = new bootstrap.Modal(document.getElementById('cardModal'));
+        cardModal.show();
+    }
+}
+
+function confirmDeleteCard(event) {
+    // Evitar que el evento se propague
+    event.stopPropagation();
+    
+    // Cerrar el modal de la tarjeta
+    const cardModal = bootstrap.Modal.getInstance(document.getElementById('cardModal'));
+    cardModal.hide();
+    
+    const cardId = $('#cardModal').attr('data-card-id');
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    
+    // Eliminar eventos anteriores para evitar duplicación
+    $('#confirmDeleteBtn').off('click');
+    
+    $('#confirmDeleteBtn').on('click', function() {
+        window.location.href = "{% url 'delete_card' 0 %}".replace('0', cardId);
+    });
+    
+    deleteModal.show();
+}
+
+document.getElementById('search-input').addEventListener('input', function(e) {
+    filterCards(e.target.value);
+});
+</script>
+{% endblock %} 
